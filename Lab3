@@ -1,0 +1,359 @@
+#include <iostream>
+#include <limits>
+#include <cstdlib>
+#include <ctime>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <stack>
+#include <chrono>
+
+// Шаблонная очередь через односвязный список
+template <typename T>
+class LinkedQueue {
+private:
+    // Структура узла односвязного списка
+    struct Node {
+        T data;          // Данные узла
+        Node* next;      // Указатель на следующий узел
+        Node(const T& value) : data(value), next(nullptr) {} // Конструктор узла
+    };
+    Node* front;    // Указатель на начало очереди
+    Node* rear;     // Указатель на конец очереди
+    size_t size;    // Размер очереди
+
+public:
+    // Конструктор по умолчанию
+    LinkedQueue() : front(nullptr), rear(nullptr), size(0) {}
+    // Деструктор - очищает память
+    ~LinkedQueue() {
+        while (!empty()) dequeue();
+    }
+    
+    // Добавление элемента в конец очереди
+    void enqueue(const T& value) {
+        Node* newNode = new Node(value); // Создание нового узла
+        if (rear) rear->next = newNode;  // Если очередь не пуста, связываем с последним элементом
+        else front = newNode;            // Если очередь пуста, новый узел становится первым
+        rear = newNode;                  // Обновляем указатель на конец
+        ++size;                          // Увеличиваем размер
+    }
+    
+    // Удаление элемента из начала очереди
+    void dequeue() {
+        if (empty()) throw std::out_of_range("Queue is empty"); // Проверка на пустую очередь
+        Node* temp = front;             // Временный указатель на удаляемый узел
+        front = front->next;            // Сдвигаем начало очереди
+        if (!front) rear = nullptr;     // Если очередь стала пуста, обнуляем конец
+        delete temp;                    // Освобождаем память
+        --size;                         // Уменьшаем размер
+    }
+    
+    // Получение ссылки на первый элемент
+    T& peek() {
+        if (empty()) throw std::out_of_range("Queue is empty"); // Проверка на пустую очередь
+        return front->data;             // Возвращаем данные первого узла
+    }
+    
+    // Проверка очереди на пустоту
+    bool empty() const { return size == 0; }
+    // Получение размера очереди
+    size_t count() const { return size; }
+
+    // Итератор для обхода очереди
+    class Iterator {
+    private:
+        Node* current;    // Текущий узел
+    public:
+        Iterator(Node* node) : current(node) {} // Конструктор итератора
+        bool operator!=(const Iterator& other) const { return current != other.current; } // Сравнение итераторов
+        T& operator*() { return current->data; } // Разыменование итератора
+        Iterator& operator++() { current = current->next; return *this; } // Переход к следующему элементу
+    };
+    
+    // Начало итерации
+    Iterator begin() { return Iterator(front); }
+    // Конец итерации
+    Iterator end() { return Iterator(nullptr); }
+};
+
+struct Person {
+    std::string lastName, firstName, middleName;
+    int birthYear;
+};
+
+// Тест: заполнение очереди 1000 числами и расчет статистики
+void Test1() {
+    LinkedQueue<int> queue; // Создание очереди для целых чисел
+    std::srand(std::time(nullptr)); // Инициализация генератора случайных чисел
+    int sum = 0, minVal = std::numeric_limits<int>::max(), maxVal = std::numeric_limits<int>::min();
+    
+    // Заполнение очереди 1000 случайными числами
+    for (int i = 0; i < 1000; ++i) {
+        int value = std::rand() % 2001 - 1000; // Генерация числа в диапазоне [-1000, 1000]
+        queue.enqueue(value);                  // Добавление в очередь
+        sum += value;                          // Подсчет суммы
+        if (value < minVal) minVal = value;    // Обновление минимума
+        if (value > maxVal) maxVal = value;    // Обновление максимума
+    }
+    
+    double average = static_cast<double>(sum) / queue.count(); // Вычисление среднего
+    std::cout << "Queue statistics:\n";     // Вывод статистики
+    std::cout << "Sum: " << sum << "\n";    // Сумма
+    std::cout << "Average: " << average << "\n"; // Среднее значение
+    std::cout << "Min: " << minVal << "\n"; // Минимум
+    std::cout << "Max: " << maxVal << "\n"; // Максимум
+}
+
+// Тест: проверка операций вставки и изъятия на 10 строковых элементах
+void Test2() {
+    LinkedQueue<std::string> queue; // Создание очереди для строк
+    std::string words[] = {"apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon"};
+    
+    std::cout << "Enqueuing elements:\n"; // Вывод заголовка
+    // Добавление элементов в очередь
+    for (const auto& word : words) {
+        queue.enqueue(word);              // Вставка элемента
+        std::cout << word << " ";         // Вывод добавленного элемента
+    }
+    std::cout << "\nDequeuing elements:\n"; // Вывод заголовка
+    
+    // Извлечение и вывод всех элементов
+    while (!queue.empty()) {
+        std::cout << queue.peek() << " "; // Вывод первого элемента
+        queue.dequeue();                  // Удаление первого элемента
+    }
+    std::cout << "\nTest2 completed.\n";  // Завершение теста
+}
+
+// Тест: работа с очередью из 100 структур Person
+void Test3() {
+    LinkedQueue<Person> queue; // Создание очереди для структур Person
+    std::vector<std::string> names = {"Alex", "John", "Emily", "Sarah", "Michael"}; // Вектор имен
+    std::vector<std::string> lastNames = {"Smith", "Johnson", "Brown", "Taylor", "Anderson"}; // Вектор фамилий
+    std::srand(std::time(nullptr)); // Инициализация генератора случайных чисел
+    
+    // Заполнение очереди 100 случайными людьми
+    for (int i = 0; i < 100; ++i) {
+        Person p{lastNames[std::rand() % lastNames.size()], // Случайная фамилия
+                 names[std::rand() % names.size()],         // Случайное имя
+                 "",                                        // Пустое отчество
+                 1980 + std::rand() % 41};                  // Год рождения от 1980 до 2020
+        queue.enqueue(p);                                   // Добавление в очередь
+    }
+    
+    LinkedQueue<Person> filteredQueue; // Очередь для отфильтрованных данных
+    int countExcluded = 0;             // Счетчик исключенных элементов
+    // Фильтрация: исключение людей с годом рождения от 1994 до 2004
+    while (!queue.empty()) {
+        Person p = queue.peek();       // Просмотр первого элемента
+        queue.dequeue();               // Удаление первого элемента
+        if (p.birthYear < 1994 || p.birthYear > 2004) {
+            filteredQueue.enqueue(p);  // Добавление в отфильтрованную очередь
+        } else {
+            countExcluded++;           // Увеличение счетчика исключенных
+        }
+    }
+    
+    std::cout << "Test3: Excluded count: " << countExcluded << "\n"; // Вывод количества исключенных
+    
+    // Инверсия содержимого контейнера
+    LinkedQueue<Person> reversedQueue; // Очередь для инверсии
+    while (!filteredQueue.empty()) {
+        Person p = filteredQueue.peek(); // Просмотр первого элемента
+        filteredQueue.dequeue();         // Удаление первого элемента
+        reversedQueue.enqueue(p);        // Добавление в инверсированную очередь
+    }
+    std::cout << "Test3 completed.\n";   // Завершение теста
+}
+
+// Шаблонная очередь через два стека
+template <typename T>
+class TwoStackQueue {
+private:
+    std::stack<T> inputStack;
+    std::stack<T> outputStack;
+    size_t size;
+
+    void transferToOutput() {
+        while (!inputStack.empty()) {
+            outputStack.push(inputStack.top());
+            inputStack.pop();
+        }
+    }
+
+public:
+    TwoStackQueue() : size(0) {}
+    
+    void enqueue(const T& value) {
+        inputStack.push(value);
+        ++size;
+    }
+    
+    void dequeue() {
+        if (empty()) throw std::out_of_range("Queue is empty");
+        if (outputStack.empty()) transferToOutput();
+        outputStack.pop();
+        --size;
+    }
+    
+    T& peek() {
+        if (empty()) throw std::out_of_range("Queue is empty");
+        if (outputStack.empty()) transferToOutput();
+        return outputStack.top();
+    }
+    
+    bool empty() const { return size == 0; }
+    size_t count() const { return size; }
+};
+
+// Тест 1 для TwoStackQueue
+void Test1_TwoStack() {
+    TwoStackQueue<int> queue;
+    std::srand(std::time(nullptr));
+    int sum = 0, minVal = std::numeric_limits<int>::max(), maxVal = std::numeric_limits<int>::min();
+    
+    for (int i = 0; i < 1000; ++i) {
+        int value = std::rand() % 2001 - 1000;
+        queue.enqueue(value);
+        sum += value;
+        if (value < minVal) minVal = value;
+        if (value > maxVal) maxVal = value;
+    }
+    
+    double average = static_cast<double>(sum) / queue.count();
+    std::cout << "TwoStackQueue statistics:\n";
+    std::cout << "Sum: " << sum << "\n";
+    std::cout << "Average: " << average << "\n";
+    std::cout << "Min: " << minVal << "\n";
+    std::cout << "Max: " << maxVal << "\n";
+}
+
+// Тест 2 для TwoStackQueue
+void Test2_TwoStack() {
+    TwoStackQueue<std::string> queue;
+    std::string words[] = {"apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon"};
+    
+    std::cout << "Enqueuing elements (TwoStackQueue):\n";
+    for (const auto& word : words) {
+        queue.enqueue(word);
+        std::cout << word << " ";
+    }
+    std::cout << "\nDequeuing elements (TwoStackQueue):\n";
+    
+    while (!queue.empty()) {
+        std::cout << queue.peek() << " ";
+        queue.dequeue();
+    }
+    std::cout << "\nTest2_TwoStack completed.\n";
+}
+
+// Тест 3 для TwoStackQueue
+void Test3_TwoStack() {
+    TwoStackQueue<Person> queue;
+    std::vector<std::string> names = {"Alex", "John", "Emily", "Sarah", "Michael"};
+    std::vector<std::string> lastNames = {"Smith", "Johnson", "Brown", "Taylor", "Anderson"};
+    std::srand(std::time(nullptr));
+    
+    for (int i = 0; i < 100; ++i) {
+        Person p{lastNames[std::rand() % lastNames.size()],
+                 names[std::rand() % names.size()],
+                 "",
+                 1980 + std::rand() % 41};
+        queue.enqueue(p);
+    }
+    
+    TwoStackQueue<Person> filteredQueue;
+    int countExcluded = 0;
+    while (!queue.empty()) {
+        Person p = queue.peek();
+        queue.dequeue();
+        if (p.birthYear < 1994 || p.birthYear > 2004) {
+            filteredQueue.enqueue(p);
+        } else {
+            countExcluded++;
+        }
+    }
+    
+    std::cout << "Test3_TwoStack: Excluded count: " << countExcluded << "\n";
+    
+    TwoStackQueue<Person> reversedQueue;
+    while (!filteredQueue.empty()) {
+        Person p = filteredQueue.peek();
+        filteredQueue.dequeue();
+        reversedQueue.enqueue(p);
+    }
+    std::cout << "Test3_TwoStack completed.\n";
+}
+
+// Тест скорости для LinkedQueue
+void testLinkedQueueSpeed(int elements) {
+    LinkedQueue<int> queue;
+    
+    // Измерение времени вставки
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < elements; ++i) {
+        queue.enqueue(i);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto enqueueTime = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    // Измерение времени изъятия
+    start = std::chrono::high_resolution_clock::now();
+    while (!queue.empty()) {
+        queue.dequeue();
+    }
+    end = std::chrono::high_resolution_clock::now();
+    auto dequeueTime = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    std::cout << "LinkedQueue (" << elements << " elements):\n";
+    std::cout << "Enqueue time: " << enqueueTime << " microseconds\n";
+    std::cout << "Dequeue time: " << dequeueTime << " microseconds\n";
+    std::cout << "Total time: " << (enqueueTime + dequeueTime) << " microseconds\n\n";
+}
+
+// Тест скорости для TwoStackQueue
+void testTwoStackQueueSpeed(int elements) {
+    TwoStackQueue<int> queue;
+    
+    // Измерение времени вставки
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < elements; ++i) {
+        queue.enqueue(i);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto enqueueTime = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    // Измерение времени изъятия
+    start = std::chrono::high_resolution_clock::now();
+    while (!queue.empty()) {
+        queue.dequeue();
+    }
+    end = std::chrono::high_resolution_clock::now();
+    auto dequeueTime = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    
+    std::cout << "TwoStackQueue (" << elements << " elements):\n";
+    std::cout << "Enqueue time: " << enqueueTime << " microseconds\n";
+    std::cout << "Dequeue time: " << dequeueTime << " microseconds\n";
+    std::cout << "Total time: " << (enqueueTime + dequeueTime) << " microseconds\n\n";
+}
+
+int main() {
+    std::cout << "Testing LinkedQueue:\n";
+    Test1();
+    Test2();
+    Test3();
+    
+    std::cout << "\nTesting TwoStackQueue:\n";
+    Test1_TwoStack();
+    Test2_TwoStack();
+    Test3_TwoStack();
+    
+    const int ELEMENTS = 10000;
+    
+    std::cout << "Performance comparison for " << ELEMENTS << " elements:\n\n";
+    testLinkedQueueSpeed(ELEMENTS);
+    testTwoStackQueueSpeed(ELEMENTS);
+    
+    return 0;
+}
