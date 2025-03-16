@@ -1,0 +1,286 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <random>
+#include <chrono>
+#include <algorithm>
+
+class Graph {
+private:
+    int vertices; // Количество вершин
+    std::vector<std::vector<int>> adjacencyMatrix; // Матрица смежности
+    bool isDirected; // Направленный ли граф
+
+public:
+    Graph(int v, bool directed = false) : vertices(v), isDirected(directed) {
+        adjacencyMatrix.resize(v, std::vector<int>(v, 0));
+    }
+
+    // Добавление ребра
+    void addEdge(int u, int v) {
+        adjacencyMatrix[u][v] = 1;
+        if (!isDirected) {
+            adjacencyMatrix[v][u] = 1;
+        }
+    }
+
+    // Выдача матрицы смежности
+    std::vector<std::vector<int>> getAdjacencyMatrix() const {
+        return adjacencyMatrix;
+    }
+
+    // Выдача матрицы инцидентности
+    std::vector<std::vector<int>> getIncidenceMatrix() const {
+        int edges = 0;
+        for (int i = 0; i < vertices; ++i) {
+            for (int j = isDirected ? 0 : i; j < vertices; ++j) {
+                if (adjacencyMatrix[i][j]) ++edges;
+            }
+        }
+
+        std::vector<std::vector<int>> incidenceMatrix(vertices, std::vector<int>(edges, 0));
+        int edgeIndex = 0;
+        for (int i = 0; i < vertices; ++i) {
+            for (int j = isDirected ? 0 : i; j < vertices; ++j) {
+                if (adjacencyMatrix[i][j]) {
+                    incidenceMatrix[i][edgeIndex] = 1;
+                    if (isDirected) {
+                        incidenceMatrix[j][edgeIndex] = -1;
+                    } else {
+                        incidenceMatrix[j][edgeIndex] = 1;
+                    }
+                    ++edgeIndex;
+                }
+            }
+        }
+        return incidenceMatrix;
+    }
+
+    // Выдача списка смежности
+    std::vector<std::vector<int>> getAdjacencyList() const {
+        std::vector<std::vector<int>> adjacencyList(vertices);
+        for (int i = 0; i < vertices; ++i) {
+            for (int j = 0; j < vertices; ++j) {
+                if (adjacencyMatrix[i][j]) {
+                    adjacencyList[i].push_back(j);
+                }
+            }
+        }
+        return adjacencyList;
+    }
+
+    // Выдача списка ребер
+    std::vector<std::pair<int, int>> getEdgeList() const {
+        std::vector<std::pair<int, int>> edgeList;
+        for (int i = 0; i < vertices; ++i) {
+            for (int j = isDirected ? 0 : i; j < vertices; ++j) {
+                if (adjacencyMatrix[i][j]) {
+                    edgeList.emplace_back(i, j);
+                }
+            }
+        }
+        return edgeList;
+    }
+
+    // Поиск в ширину (BFS)
+    bool BFS(int start, int end, std::vector<int>& path) const {
+        std::vector<bool> visited(vertices, false);
+        std::queue<int> q;
+        std::vector<int> parent(vertices, -1);
+
+        q.push(start);
+        visited[start] = true;
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            if (u == end) {
+                // Восстановление пути
+                int current = end;
+                while (current != -1) {
+                    path.push_back(current);
+                    current = parent[current];
+                }
+                std::reverse(path.begin(), path.end());
+                return true;
+            }
+
+            for (int v = 0; v < vertices; ++v) {
+                if (adjacencyMatrix[u][v] && !visited[v]) {
+                    q.push(v);
+                    visited[v] = true;
+                    parent[v] = u;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Поиск в глубину (DFS)
+    bool DFS(int start, int end, std::vector<int>& path) const {
+        std::vector<bool> visited(vertices, false);
+        std::stack<int> s;
+        std::vector<int> parent(vertices, -1);
+
+        s.push(start);
+        visited[start] = true;
+
+        while (!s.empty()) {
+            int u = s.top();
+            s.pop();
+
+            if (u == end) {
+                // Восстановление пути
+                int current = end;
+                while (current != -1) {
+                    path.push_back(current);
+                    current = parent[current];
+                }
+                std::reverse(path.begin(), path.end());
+                return true;
+            }
+
+            for (int v = 0; v < vertices; ++v) {
+                if (adjacencyMatrix[u][v] && !visited[v]) {
+                    s.push(v);
+                    visited[v] = true;
+                    parent[v] = u;
+                }
+            }
+        }
+        return false;
+    }
+};
+
+class GraphGenerator {
+private:
+    int minVertices, maxVertices;
+    int minEdges, maxEdges;
+    int maxDegree;
+    bool isDirected;
+    int maxInDegree, maxOutDegree;
+
+public:
+    GraphGenerator(int minV, int maxV, int minE, int maxE, int maxDeg, bool directed, int maxInDeg, int maxOutDeg)
+        : minVertices(minV), maxVertices(maxV), minEdges(minE), maxEdges(maxE), maxDegree(maxDeg),
+          isDirected(directed), maxInDegree(maxInDeg), maxOutDegree(maxOutDeg) {}
+
+    Graph generateGraph(int vertices, int edges) {  //AAAAAAAAAAAAA
+        Graph graph(vertices, isDirected);
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> vertexDist(0, vertices - 1);
+
+        for (int i = 0; i < edges; ++i) {
+            int u = vertexDist(gen);
+            int v = vertexDist(gen);
+
+            // Проверка на максимальное количество ребер
+            if (graph.getAdjacencyList()[u].size() < maxDegree && graph.getAdjacencyList()[v].size() < maxDegree) {
+                graph.addEdge(u, v);
+            }
+        }
+
+        return graph;
+    }
+};
+
+int main() {
+    // Параметры для генерации графов
+    int initialVertices = 5; // Начальное количество вершин
+    int initialEdges = 10;   // Начальное количество ребер
+    int stepVertices = 5;    // Шаг увеличения вершин
+    int stepEdges = 10;      // Шаг увеличения ребер
+    int maxDegree = 5;       // Максимальная степень вершины
+    bool isDirected = false; // Ненаправленный граф
+    int maxInDegree = 5;     // Максимальное количество входящих ребер (для направленных графов)
+    int maxOutDegree = 5;    // Максимальное количество исходящих ребер (для направленных графов)
+
+    GraphGenerator generator(initialVertices, initialVertices + stepVertices * 9,
+                             initialEdges, initialEdges + stepEdges * 9,
+                             maxDegree, isDirected, maxInDegree, maxOutDegree);
+
+    for (int i = 0; i < 10; ++i) {
+        int vertices = initialVertices + i * stepVertices;
+        int edges = initialEdges + i * stepEdges;
+
+        Graph graph = generator.generateGraph(vertices, edges);
+
+        // Вывод матрицы смежности
+        std::cout << "Adjacency Matrix:\n";
+        auto adjMatrix = graph.getAdjacencyMatrix();
+        for (const auto& row : adjMatrix) {
+            for (int val : row) {
+                std::cout << val << " ";
+            }
+            std::cout << "\n";
+        }
+
+        // Вывод списка смежности
+        std::cout << "Adjacency List:\n";
+        auto adjList = graph.getAdjacencyList();
+        for (int j = 0; j < adjList.size(); ++j) {
+            std::cout << j << ": ";
+            for (int neighbor : adjList[j]) {
+                std::cout << neighbor << " ";
+            }
+            std::cout << "\n";
+        }
+
+        std::cout << "Graph " << i + 1 << ":\n";
+        std::cout << "Vertices: " << vertices << ", Edges: " << edges << "\n";
+
+
+
+        // Выбор случайных вершин для поиска пути
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> vertexDist(0, vertices - 1);
+        int start = vertexDist(gen);
+        int end = vertexDist(gen);
+
+        std::vector<int> pathBFS, pathDFS;
+
+        // Поиск пути с использованием BFS
+        auto startTimeBFS = std::chrono::high_resolution_clock::now();
+        bool foundBFS = graph.BFS(start, end, pathBFS);
+        auto endTimeBFS = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsedBFS = endTimeBFS - startTimeBFS;
+
+        // Поиск пути с использованием DFS
+        auto startTimeDFS = std::chrono::high_resolution_clock::now();
+        bool foundDFS = graph.DFS(start, end, pathDFS);
+        auto endTimeDFS = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsedDFS = endTimeDFS - startTimeDFS;
+
+        std::cout << "Path from " << start << " to " << end << ":\n";
+        if (foundBFS) {
+            std::cout << "BFS Path: ";
+            for (int v : pathBFS) {
+                std::cout << v << " ";
+            }
+            std::cout << "\n";
+        } else {
+            std::cout << "No path found with BFS.\n";
+        }
+
+        if (foundDFS) {
+            std::cout << "DFS Path: ";
+            for (int v : pathDFS) {
+                std::cout << v << " ";
+            }
+            std::cout << "\n";
+        } else {
+            std::cout << "No path found with DFS.\n";
+        }
+
+        std::cout << "BFS Time: " << elapsedBFS.count() << "s\n";
+        std::cout << "DFS Time: " << elapsedDFS.count() << "s\n";
+        std::cout << "-------------------------\n";
+    }
+
+    return 0;
+}
