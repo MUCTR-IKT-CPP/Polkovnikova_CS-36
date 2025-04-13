@@ -1,0 +1,517 @@
+/*
+7) Аналогичная серия тестов и сравнение ее для отсортированного заранее набора данных
+8) Реализовать красно черное дерево и провести все те же проверки с ним.
+ */
+
+// реализация красно-чёрного дерева
+#include <iostream>
+#include <vector>
+#include <random>
+#include <chrono>
+#include <algorithm>
+#include <cmath>
+#include <climits>
+#include <fstream>
+#include <map>
+
+using namespace std;
+using namespace std::chrono;
+
+enum Color { RED, BLACK };
+
+// Узел красно-чёрного дерева
+struct RBNode {
+    int key;
+    RBNode* left;
+    RBNode* right;
+    RBNode* parent;
+    Color color;
+    int size; // Размер поддерева
+    
+    RBNode(int k) : key(k), left(nullptr), right(nullptr), parent(nullptr), color(RED), size(1) {}
+};
+
+// Красно-чёрное дерево
+class RedBlackTree {
+private:
+    RBNode* root;
+    RBNode* nil; // Фиктивный листовой узел
+    
+    // Получение размера поддерева
+    int getSize(RBNode* node) const {
+        return node != nil ? node->size : 0;
+    }
+    
+    // Обновление размера поддерева
+    void updateSize(RBNode* node) {
+        if (node != nil) {
+            node->size = 1 + getSize(node->left) + getSize(node->right);
+        }
+    }
+    
+    // Левый поворот
+    void leftRotate(RBNode* x) {
+        RBNode* y = x->right;
+        x->right = y->left;
+        
+        if (y->left != nil) {
+            y->left->parent = x;
+        }
+        
+        y->parent = x->parent;
+        
+        if (x->parent == nil) {
+            root = y;
+        } else if (x == x->parent->left) {
+            x->parent->left = y;
+        } else {
+            x->parent->right = y;
+        }
+        
+        y->left = x;
+        x->parent = y;
+        
+        updateSize(x);
+        updateSize(y);
+    }
+    
+    // Правый поворот
+    void rightRotate(RBNode* y) {
+        RBNode* x = y->left;
+        y->left = x->right;
+        
+        if (x->right != nil) {
+            x->right->parent = y;
+        }
+        
+        x->parent = y->parent;
+        
+        if (y->parent == nil) {
+            root = x;
+        } else if (y == y->parent->right) {
+            y->parent->right = x;
+        } else {
+            y->parent->left = x;
+        }
+        
+        x->right = y;
+        y->parent = x;
+        
+        updateSize(y);
+        updateSize(x);
+    }
+    
+    // Восстановление свойств после вставки
+    void insertFixup(RBNode* z) {
+        while (z->parent->color == RED) {
+            if (z->parent == z->parent->parent->left) {
+                RBNode* y = z->parent->parent->right;
+                
+                if (y->color == RED) {
+                    // Случай 1: дядя красный
+                    z->parent->color = BLACK;
+                    y->color = BLACK;
+                    z->parent->parent->color = RED;
+                    z = z->parent->parent;
+                } else {
+                    if (z == z->parent->right) {
+                        // Случай 2: дядя черный, z - правый потомок
+                        z = z->parent;
+                        leftRotate(z);
+                    }
+                    // Случай 3: дядя черный, z - левый потомок
+                    z->parent->color = BLACK;
+                    z->parent->parent->color = RED;
+                    rightRotate(z->parent->parent);
+                }
+            } else {
+                // Симметричный случай
+                RBNode* y = z->parent->parent->left;
+                
+                if (y->color == RED) {
+                    // Случай 1
+                    z->parent->color = BLACK;
+                    y->color = BLACK;
+                    z->parent->parent->color = RED;
+                    z = z->parent->parent;
+                } else {
+                    if (z == z->parent->left) {
+                        // Случай 2
+                        z = z->parent;
+                        rightRotate(z);
+                    }
+                    // Случай 3
+                    z->parent->color = BLACK;
+                    z->parent->parent->color = RED;
+                    leftRotate(z->parent->parent);
+                }
+            }
+        }
+        root->color = BLACK;
+    }
+    
+    // Восстановление свойств после удаления
+    void deleteFixup(RBNode* x) {
+        while (x != root && x->color == BLACK) {
+            if (x == x->parent->left) {
+                RBNode* w = x->parent->right;
+                
+                if (w->color == RED) {
+                    // Случай 1: брат красный
+                    w->color = BLACK;
+                    x->parent->color = RED;
+                    leftRotate(x->parent);
+                    w = x->parent->right;
+                }
+                
+                if (w->left->color == BLACK && w->right->color == BLACK) {
+                    // Случай 2: оба ребенка брата черные
+                    w->color = RED;
+                    x = x->parent;
+                } else {
+                    if (w->right->color == BLACK) {
+                        // Случай 3: правый ребенок брата черный
+                        w->left->color = BLACK;
+                        w->color = RED;
+                        rightRotate(w);
+                        w = x->parent->right;
+                    }
+                    // Случай 4
+                    w->color = x->parent->color;
+                    x->parent->color = BLACK;
+                    w->right->color = BLACK;
+                    leftRotate(x->parent);
+                    x = root;
+                }
+            } else {
+                // Симметричный случай
+                RBNode* w = x->parent->left;
+                
+                if (w->color == RED) {
+                    w->color = BLACK;
+                    x->parent->color = RED;
+                    rightRotate(x->parent);
+                    w = x->parent->left;
+                }
+                
+                if (w->right->color == BLACK && w->left->color == BLACK) {
+                    w->color = RED;
+                    x = x->parent;
+                } else {
+                    if (w->left->color == BLACK) {
+                        w->right->color = BLACK;
+                        w->color = RED;
+                        leftRotate(w);
+                        w = x->parent->left;
+                    }
+                    w->color = x->parent->color;
+                    x->parent->color = BLACK;
+                    w->left->color = BLACK;
+                    rightRotate(x->parent);
+                    x = root;
+                }
+            }
+        }
+        x->color = BLACK;
+    }
+    
+    // Поиск узла с минимальным ключом в поддереве
+    RBNode* minimum(RBNode* node) const {
+        while (node->left != nil) {
+            node = node->left;
+        }
+        return node;
+    }
+    
+    // Поиск узла
+    RBNode* search(RBNode* node, int key) const {
+        if (node == nil) return nil;
+        if (key == node->key) return node;
+        return key < node->key ? search(node->left, key) : search(node->right, key);
+    }
+    
+    // Трансплантация поддерева
+    void transplant(RBNode* u, RBNode* v) {
+        if (u->parent == nil) {
+            root = v;
+        } else if (u == u->parent->left) {
+            u->parent->left = v;
+        } else {
+            u->parent->right = v;
+        }
+        v->parent = u->parent;
+    }
+    
+    // Максимальная глубина
+    int maxDepth(RBNode* node) const {
+        if (node == nil) return 0;
+        return 1 + max(maxDepth(node->left), maxDepth(node->right));
+    }
+    
+    // Сбор глубин всех веток
+    void collectBranchDepths(RBNode* node, int currentDepth, vector<int>& depths) const {
+        if (node == nil) return;
+        
+        if (node->left == nil && node->right == nil) {
+            depths.push_back(currentDepth + 1);
+            return;
+        }
+        
+        collectBranchDepths(node->left, currentDepth + 1, depths);
+        collectBranchDepths(node->right, currentDepth + 1, depths);
+    }
+    
+public:
+    RedBlackTree() {
+        nil = new RBNode(0);
+        nil->color = BLACK;
+        nil->size = 0;
+        root = nil;
+    }
+    
+    ~RedBlackTree() {
+        clear();
+        delete nil;
+    }
+    
+    // Вставка элемента
+    void insert(int key) {
+        RBNode* z = new RBNode(key);
+        RBNode* y = nil;
+        RBNode* x = root;
+        
+        while (x != nil) {
+            y = x;
+            if (z->key < x->key) {
+                x = x->left;
+            } else {
+                x = x->right;
+            }
+        }
+        
+        z->parent = y;
+        if (y == nil) {
+            root = z;
+        } else if (z->key < y->key) {
+            y->left = z;
+        } else {
+            y->right = z;
+        }
+        
+        z->left = nil;
+        z->right = nil;
+        z->color = RED;
+        
+        // Обновляем размеры на пути к корню
+        x = z;
+        while (x != nil) {
+            updateSize(x);
+            x = x->parent;
+        }
+        
+        insertFixup(z);
+    }
+    
+    // Удаление элемента
+    void remove(int key) {
+        RBNode* z = search(root, key);
+        if (z == nil) return;
+        
+        RBNode* y = z;
+        RBNode* x;
+        Color yOriginalColor = y->color;
+        
+        if (z->left == nil) {
+            x = z->right;
+            transplant(z, z->right);
+        } else if (z->right == nil) {
+            x = z->left;
+            transplant(z, z->left);
+        } else {
+            y = minimum(z->right);
+            yOriginalColor = y->color;
+            x = y->right;
+            
+            if (y->parent == z) {
+                x->parent = y;
+            } else {
+                transplant(y, y->right);
+                y->right = z->right;
+                y->right->parent = y;
+            }
+            
+            transplant(z, y);
+            y->left = z->left;
+            y->left->parent = y;
+            y->color = z->color;
+        }
+        
+        // Обновляем размеры на пути к корню
+        RBNode* updateNode = (x != nil) ? x->parent : y->parent;
+        while (updateNode != nil) {
+            updateSize(updateNode);
+            updateNode = updateNode->parent;
+        }
+        
+        if (yOriginalColor == BLACK) {
+            deleteFixup(x);
+        }
+        
+        delete z;
+    }
+    
+    // Поиск элемента
+    bool contains(int key) const {
+        return search(root, key) != nil;
+    }
+    
+    // Получение максимальной глубины
+    int getMaxDepth() const {
+        return maxDepth(root);
+    }
+    
+    // Получение глубин всех веток
+    vector<int> getAllBranchDepths() const {
+        vector<int> depths;
+        collectBranchDepths(root, 0, depths);
+        return depths;
+    }
+    
+    // Очистка дерева
+    void clear() {
+        while (root != nil) {
+            remove(root->key);
+        }
+    }
+};
+
+// Функция для тестирования (аналогичная тестовой функции для RandomizedBST)
+void testRedBlackTree() {
+    const int REPETITIONS = 50;
+    const int OPERATIONS = 1000;
+    
+    for (int i = 10; i <= 18; ++i) {
+        const size_t N = 1 << i; // 2^i
+        
+        vector<double> maxDepths;
+        vector<double> insertTimes;
+        vector<double> deleteTimes;
+        vector<double> searchTimes;
+        vector<int> allBranchDepths;
+        
+        // cout << "Testing N = 2^" << i << " = " << N << "..." << endl;
+        
+        for (int rep = 0; rep < REPETITIONS; ++rep) {
+            RedBlackTree tree;
+            
+            // 1. Генерация N случайных значений
+            vector<int> elements(N);
+            for (auto& elem : elements) {
+                elem = rand() % (10 * N);
+            }
+            
+            // 2. Заполнение дерева
+            for (int elem : elements) {
+                tree.insert(elem);
+            }
+            
+            // 3. Замер максимальной глубины
+            maxDepths.push_back(tree.getMaxDepth());
+            
+            // 4. 1000 операций вставки и замер времени
+            auto start = high_resolution_clock::now();
+            for (int j = 0; j < OPERATIONS; ++j) {
+                int elem = rand() % (10 * N);
+                tree.insert(elem);
+            }
+            auto end = high_resolution_clock::now();
+            insertTimes.push_back(duration_cast<microseconds>(end - start).count() / 1000.0);
+            
+            // 5. 1000 операций удаления и замер времени
+            start = high_resolution_clock::now();
+            for (int j = 0; j < OPERATIONS; ++j) {
+                int elem = elements.empty() ? rand() % (10 * N) : 
+                          (rand() % 2 ? elements[rand() % elements.size()] : rand() % (10 * N));
+                tree.remove(elem);
+            }
+            end = high_resolution_clock::now();
+            deleteTimes.push_back(duration_cast<microseconds>(end - start).count() / 1000.0);
+            
+            // 6. 1000 операций поиска и замер времени
+            start = high_resolution_clock::now();
+            for (int j = 0; j < OPERATIONS; ++j) {
+                int elem = elements.empty() ? rand() % (10 * N) : 
+                          (rand() % 2 ? elements[rand() % elements.size()] : rand() % (10 * N));
+                tree.contains(elem);
+            }
+            end = high_resolution_clock::now();
+            searchTimes.push_back(duration_cast<microseconds>(end - start).count() / 1000.0);
+            
+            // 7. Сбор глубин всех веток
+            vector<int> depths = tree.getAllBranchDepths();
+            allBranchDepths.insert(allBranchDepths.end(), depths.begin(), depths.end());
+        }
+        
+        // Вычисление статистики
+        double avgMaxDepth = accumulate(maxDepths.begin(), maxDepths.end(), 0.0) / maxDepths.size();
+        double avgInsertTime = accumulate(insertTimes.begin(), insertTimes.end(), 0.0) / insertTimes.size();
+        double avgDeleteTime = accumulate(deleteTimes.begin(), deleteTimes.end(), 0.0) / deleteTimes.size();
+        double avgSearchTime = accumulate(searchTimes.begin(), searchTimes.end(), 0.0) / searchTimes.size();
+        
+        double avgBranchDepth = accumulate(allBranchDepths.begin(), allBranchDepths.end(), 0.0) / allBranchDepths.size();
+        int minBranchDepth = *min_element(allBranchDepths.begin(), allBranchDepths.end());
+        int maxBranchDepth = *max_element(allBranchDepths.begin(), allBranchDepths.end());
+        
+        // Вывод результатов
+        //cout << "Results for N = " << N << ":" << endl;
+        cout << N << "," << avgInsertTime << "," << avgDeleteTime << "," << avgSearchTime << "," << avgMaxDepth << endl;
+        //cout << "  Average max depth: " << avgMaxDepth << " (expected ~" << 2 * log2(N) << ")" << endl;
+        //cout << "  Average insert time for " << OPERATIONS << " ops: " << avgInsertTime << " ms" << endl;
+        //cout << "  Average delete time for " << OPERATIONS << " ops: " << avgDeleteTime << " ms" << endl;
+        //cout << "  Average search time for " << OPERATIONS << " ops: " << avgSearchTime << " ms" << endl;
+        //cout << "  Branch depths - avg: " << avgBranchDepth << ", min: " << minBranchDepth 
+        //     << ", max: " << maxBranchDepth << endl;
+        //cout << endl;
+
+        // Для последней серии тестов (N=262144) сохраняем сырые данные
+        if (i == 18) {
+            // 1. Гистограмма максимальных высот
+            map<int, int> maxDepthHist;
+            int binSize = 2; // Размер бина для группировки
+            
+            for (double depth : maxDepths) {
+                int bin = static_cast<int>(depth) / binSize * binSize;
+                maxDepthHist[bin]++;
+            }
+            
+            ofstream maxDepthFile("rb_max_depths.csv");
+            maxDepthFile << "Depth Range,Count\n";
+            for (const auto& [depth, count] : maxDepthHist) {
+                maxDepthFile << depth << "-" << (depth + binSize - 1) << "," << count << "\n";
+            }
+            
+            // 2. Гистограмма высот веток
+            map<int, int> branchDepthHist;
+            int branchBinSize = 2; // Размер бина для группировки
+            
+            for (int depth : allBranchDepths) {
+                int bin = depth / branchBinSize * branchBinSize;
+                branchDepthHist[bin]++;
+            }
+            
+            ofstream branchDepthFile("rb_branch_depths.csv");
+            branchDepthFile << "Depth Range,Count\n";
+            for (const auto& [depth, count] : branchDepthHist) {
+                branchDepthFile << depth << "-" << (depth + branchBinSize - 1) << "," << count << "\n";
+            }
+            
+            cout << "Histogram data saved to rb_max_depths.csv and rb_branch_depths.csv" << endl;
+        }
+    }
+}
+
+int main() {
+    srand(time(nullptr)); // Инициализация генератора случайных чисел
+    testRedBlackTree();
+    return 0;
+}
